@@ -26,10 +26,21 @@ jobs:
 
       - name: Encontrar a pasta do projeto
         run: |
-          DIR=$(dirname "$(find . -name settings.gradle -not -path '*/node_modules/*' | head -n 1)")
-          if [ -z "$DIR" ] || [ "$DIR" = "." ] && [ ! -f settings.gradle ]; then
-            echo "Não encontrei o settings.gradle no repositório."; exit 1
+          echo "Ficheiros no repositório:"
+          find . -path ./.git -prune -o -type f -print | head -n 50
+          FOUND=$(find . -name settings.gradle -not -path './.git/*' | head -n 1)
+          if [ -z "$FOUND" ]; then
+            ZIP=$(find . -name '*.zip' -not -path './.git/*' | head -n 1)
+            if [ -n "$ZIP" ]; then
+              echo "A descompactar $ZIP"
+              mkdir -p _projeto && unzip -q -o "$ZIP" -d _projeto
+              FOUND=$(find ./_projeto -name settings.gradle | head -n 1)
+            fi
           fi
+          if [ -z "$FOUND" ]; then
+            echo "Não encontrei o projeto. Envia o HotelPatinhas.zip para o repositório."; exit 1
+          fi
+          DIR=$(dirname "$FOUND")
           echo "Projeto em: $DIR"
           echo "PROJ=$DIR" >> $GITHUB_ENV
 
