@@ -19,17 +19,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Preparar o Gradle
+      - name: Instalar o Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-      - name: Dar permissão ao gradlew
-        run: chmod +x gradlew
+      - name: Encontrar a pasta do projeto
+        run: |
+          DIR=$(dirname "$(find . -name settings.gradle -not -path '*/node_modules/*' | head -n 1)")
+          if [ -z "$DIR" ] || [ "$DIR" = "." ] && [ ! -f settings.gradle ]; then
+            echo "Não encontrei o settings.gradle no repositório."; exit 1
+          fi
+          echo "Projeto em: $DIR"
+          echo "PROJ=$DIR" >> $GITHUB_ENV
 
       - name: Compilar o APK
-        run: ./gradlew assembleRelease --stacktrace
+        working-directory: ${{ env.PROJ }}
+        run: gradle assembleRelease --stacktrace
 
       - name: Mudar o nome do APK
-        run: cp app/build/outputs/apk/release/app-release.apk HotelPatinhas.apk
+        run: cp "$PROJ/app/build/outputs/apk/release/app-release.apk" HotelPatinhas.apk
 
       - name: Guardar o APK
         uses: actions/upload-artifact@v4
