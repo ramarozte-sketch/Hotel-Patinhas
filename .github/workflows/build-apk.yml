@@ -24,36 +24,41 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Encontrar a pasta do projeto
+      - name: Escolher a versão mais recente do projeto
+        shell: bash
         run: |
-          echo "Ficheiros no repositório:"
-          find . -path ./.git -prune -o -type f -print | head -n 50
-          FOUND=$(find . -name settings.gradle -not -path './.git/*' | head -n 1)
-          if [ -z "$FOUND" ]; then
-            ZIP=$(find . -name '*.zip' -not -path './.git/*' | head -n 1)
-            if [ -n "$ZIP" ]; then
-              echo "A descompactar $ZIP"
-              mkdir -p _projeto && unzip -q -o "$ZIP" -d _projeto
-              FOUND=$(find ./_projeto -name settings.gradle | head -n 1)
-            fi
-          fi
-          if [ -z "$FOUND" ]; then
-            echo "Não encontrei o projeto. Envia o HotelPatinhas.zip para o repositório."; exit 1
-          fi
-          DIR=$(dirname "$FOUND")
-          echo "Projeto em: $DIR"
-          echo "PROJ=$DIR" >> $GITHUB_ENV
+          # escolhe, entre todos os projetos e zips do repositório, o que tem o versionCode mais alto
+          set -u
+          best=""; bestv=-1
+          ver(){ grep -m1 -oP 'versionCode\s+\K[0-9]+' "$1/app/build.gradle" 2>/dev/null || echo 0; }
+          while IFS= read -r s; do
+            d=$(dirname "$s"); v=$(ver "$d")
+            echo "Projeto na pasta $d: versionCode $v"
+            if [ "$v" -gt "$bestv" ]; then bestv=$v; best=$d; fi
+          done < <(find . -name settings.gradle -not -path './.git/*' -not -path './_z/*')
+          i=0
+          while IFS= read -r z; do
+            i=$((i+1)); t="_z/$i"; mkdir -p "$t"
+            unzip -q -o "$z" -d "$t" || { echo "Não consegui abrir $z"; continue; }
+            s=$(find "$t" -name settings.gradle | head -n 1); [ -z "$s" ] && continue
+            d=$(dirname "$s"); v=$(ver "$d")
+            echo "Zip $z: versionCode $v"
+            if [ "$v" -gt "$bestv" ]; then bestv=$v; best=$d; fi
+          done < <(find . -name '*.zip' -not -path './.git/*' -not -path './_z/*')
+          if [ -z "$best" ]; then echo "Não encontrei o projeto. Envia o HotelPatinhas.zip para o repositório."; exit 1; fi
+          name=$(grep -m1 -oP 'versionName\s+"\K[^"]+' "$best/app/build.gradle" || echo "?")
+          echo "==> A compilar a versão $name (versionCode $bestv) a partir de: $best"
+          echo "PROJ=$best" >> "${GITHUB_ENV:-/dev/null}"
+          echo "VER=$name" >> "${GITHUB_ENV:-/dev/null}"
 
       - name: Compilar o APK
         working-directory: ${{ env.PROJ }}
         run: gradle assembleRelease --stacktrace
 
       - name: Mudar o nome do APK
-        run: cp "$PROJ/app/build/outputs/apk/release/app-release.apk" HotelPatinhas.apk
+        run: cp "$PROJ/app/build/outputs/apk/release/app-release.apk" "HotelPatinhas-$VER.apk"
 
       - name: Guardar o APK
         uses: actions/upload-artifact@v4
         with:
-          name: HotelPatinhas-apk
-          path: HotelPatinhas.apk
-          retention-days: 30
+          n
