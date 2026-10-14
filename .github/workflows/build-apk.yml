@@ -52,13 +52,21 @@ jobs:
           echo "VER=$name" >> "${GITHUB_ENV:-/dev/null}"
 
       - name: Compilar o APK
-        working-directory: ${{ env.PROJ }}
-        run: gradle assembleRelease --stacktrace
+        shell: bash
+        run: |
+          cd "$PROJ"
+          gradle assembleRelease --stacktrace
 
       - name: Mudar o nome do APK
-        run: cp "$PROJ/app/build/outputs/apk/release/app-release.apk" "HotelPatinhas-$VER.apk"
+        shell: bash
+        run: |
+          mkdir -p apk
+          cp "$PROJ/app/build/outputs/apk/release/app-release.apk" "apk/HotelPatinhas-$VER.apk"
+          ls -l apk
 
       - name: Guardar o APK
         uses: actions/upload-artifact@v4
         with:
-          n
+          name: HotelPatinhas-apk
+          path: apk/
+          retention-days: 30
