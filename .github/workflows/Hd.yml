@@ -64,3 +64,60 @@ jobs:
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
           curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           unzip -q godot.zip && rm godot.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz && rm templates.tpz
+          # só são precisos os modelos de Android
+          find templates -type f ! -name 'android*' ! -name 'version.txt' -delete
+
+      - name: Preparar o Godot para Android
+        shell: bash
+        run: |
+          set -e
+          TPL=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$TPL" && cp -r ~/godot/templates/* "$TPL/"
+          keytool -genkeypair -v -keystore ~/debug.keystore -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" > /dev/null
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          mkdir -p ~/.config/godot
+          MINOR=$(echo "$GODOT_VERSION" | cut -d. -f1,2)
+          for f in editor_settings-4.tres editor_settings-${MINOR}.tres; do
+            cat > ~/.config/godot/$f <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+            sed -i 's/^          //' ~/.config/godot/$f
+          done
+          echo "SDK: $SDK"; ls "$SDK" || true
+
+      - name: Importar o projeto
+        shell: bash
+        run: |
+          cd "$PROJ"
+          ~/godot/godot --headless --path . --import || true
+          ~/godot/godot --headless --path . --import
+
+      - name: Compilar o APK
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ env.PROJ }}/android/hotelhd.jks
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: hotelhd
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: patinhas
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cd "$PROJ"
+          ~/godot/godot --headless --path . --export-release "Android" "$GITHUB_WORKSPACE/out/HotelPatinhasHD-v${VER}.apk"
+          ls -la "$GITHUB_WORKSPACE/out"
+          test -f "$GITHUB_WORKSPACE/out/HotelPatinhasHD-v${VER}.apk"
+
+      - name: Guardar o APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HotelPatinhasHD-v${{ env.VER }}
+          path: out/*.apk
