@@ -72,17 +72,4 @@ jobs:
             echo "A descarregar os modelos de exportação (cerca de 1,3 GB)..."
             rm -rf templates
             curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-            unzip -q -o templates.tpz 'templates/android*' 'templates/version.txt'
-            rm templates.tpz
-          fi
-          ls -la ~/godot ~/godot/templates
-
-      - name: Preparar o Godot para Android
-        shell: bash
-        run: |
-          set -e
-          TPL=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
-          mkdir -p "$TPL"
-          cp -v ~/godot/templates/android_debug.apk ~/godot/templates/android_release.apk ~/godot/templates/android_source.zip ~/godot/templates/version.txt "$TPL/"
-          keytool -genkeypair -v -keystore ~/debug.keystore -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048
+            unzip -q -o templates.tpz 'templates/a
