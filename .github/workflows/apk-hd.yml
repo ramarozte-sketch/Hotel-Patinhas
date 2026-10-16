@@ -2,25 +2,28 @@ name: Gerar APK (Hotel Patinhas HD)
 
 on:
   push:
-    branches: [ main, master ]
   workflow_dispatch:
-
-env:
-  GODOT_VERSION: "4.7.2"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Obter o código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Escolher a versão mais recente do projeto
-        shell: bash
-        run: |
-          # o projeto pode estar na raiz do repositório, numa pasta ou dentro de um HotelPatinhasHD.zip
-          set -u
-          best=""; bestv=-1
-          ver(){ grep -m1 -oP '^version/code=\K[0-9]+' "$1/export_presets.cfg" 2>/dev/null || echo 0; }
-          while IFS= read -r p; do
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-v3-4.7.2
+
+      - name: Compilar o APK
+        run: unzip -q -o $(find . -name HotelPatinhasHD*.zip | head -n 1) -d _hd && bash _hd/HotelPatinhasHD/ci/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HotelPatinhasHD-apk
+          path: out/*.apk
